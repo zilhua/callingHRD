@@ -57,6 +57,7 @@ def procSnps(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
     out["vafN"] = 1 - rcmat["NOR.RD"]/rcmat["NOR.DP"]
     out["refN"] = rcmat["NOR.RD"]/rcmat["NOR.DP"]
     out = out.sort_values(by=["chrom", "maploc"])
+    out = out.reset_index(drop=True)
     if unmatched:
         if het_thresh == 0.25:
             het_thresh = 0.1
@@ -64,11 +65,47 @@ def procSnps(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
                           & (out["rCountT"] > 50))
     else:
         out["het"] = 1 * (out[["vafN", "refN"]].min(axis=1) > het_thresh)
-    scansnp(out, snp_window=snp_window)
-    print out
+    _scansnp(out, snp_window=snp_window)
+    #print out
 
-def scansnp(dat, snp_window=250):
-    pass
+def _scansnp(dat, snp_window=250):
+    i = 0
+    keep = np.zeros(len(dat))
+    het = dat["het"]
+    nsnp = 1.0
+    nhet = het[i]
+    isel = i
+    for index, row in dat.iterrows():
+        if index == 0:
+            continue
+        if abs(row["maploc"] - dat.iloc[i]) <= snp_window:
+            nsnp = nsnp + 1.0
+            nhet = nhet + het[index]
+            usnp = np.random.uniform()
+            if nhet > 0:
+                if het[index] == 1:
+                    if usnp <= 1/nhet:
+                        keep[isel] = 0
+                        keep[index] = 1.0
+                        isel = index
+                    else:
+                        keep[index] = 0
+                else:
+                    keep[index] = 0
+            else:
+                if usnp <= 1/nsnp:
+                    keep[isel] = 0
+                    keep[index] = 1.0
+                    isel = index
+                else:
+                    keep[index] = 0.0
+        else:
+            i = index
+            isel = i
+            keep[i] = 1
+            nsnp = 1.0
+            nhet = het[i]
+    return keep
 
 
 if __name__ == "__main__":
