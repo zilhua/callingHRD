@@ -68,7 +68,9 @@ def procSnps(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
     _scansnp(out, snp_window=snp_window)
     #print out
 
+
 def _scansnp(dat, snp_window=250):
+    #nsnp, nhet and isel  are initialized
     i = 0
     keep = np.zeros(len(dat))
     het = dat["het"]
@@ -78,9 +80,10 @@ def _scansnp(dat, snp_window=250):
     for index, row in dat.iterrows():
         if index == 0:
             continue
-        if abs(row["maploc"] - dat.iloc[i]) <= snp_window:
+        if abs(row["maploc"] - dat.iloc[i]["maploc"]) <= snp_window:
             nsnp = nsnp + 1.0
             nhet = nhet + het[index]
+            #generate a random number to decide which one is kept
             usnp = np.random.uniform()
             if nhet > 0:
                 if het[index] == 1:
@@ -105,8 +108,9 @@ def _scansnp(dat, snp_window=250):
             keep[i] = 1
             nsnp = 1.0
             nhet = het[i]
+    print keep
     return keep
 
 
 if __name__ == "__main__":
-    readSNP(file="test.csv")
+    readSNP(file="stomach.csv")
