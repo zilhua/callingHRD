@@ -13,7 +13,7 @@ https://github.com/mskcc/facets
 
 import pandas as pd
 import numpy as np
-import re,sys
+import re,sys,time
 
 
 def readSNP(file=None, err_thresh=0, del_thresh=0):
@@ -32,6 +32,7 @@ def readSNP(file=None, err_thresh=0, del_thresh=0):
     dat_f = dat_f[dat_f["Chromosome"].isin([str(i) for i in xrange(23)] + ['X'])]
     dat_f.loc[dat_f["Chromosome"] == "X", "Chromosome"] = "23"
     dat_f["Chromosome"] = dat_f["Chromosome"].astype(int)
+    print dat_f.shape
     preProcSample(dat_f)
     return dat_f
 
@@ -39,11 +40,14 @@ def readSNP(file=None, err_thresh=0, del_thresh=0):
 def preProcSample(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
             cval=25, deltaCN=0, hetscale=True, unmatched=False,
             ndepthmax=5000):
-    pmat = procSnps(rcmat, ndepth, het_thresh, snp_window, unmatched, ndepthmax)
-    print pmat
+    rcmat = _procSnps(rcmat, ndepth, het_thresh, snp_window, unmatched,
+                     ndepthmax)
+    _counts2logROR(rcmat, gbuild="hg19", unmatched=unmatched, f=0.2)
+    print rcmat.shape
+    #print rcmat
 
 
-def procSnps(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
+def _procSnps(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
              unmatched=False, ndepthmax=5000):
     rcmat = rcmat[(rcmat["NOR.DP"] >= ndepth ) & \
             (rcmat["NOR.DP"] <= ndepthmax)]
@@ -65,18 +69,70 @@ def procSnps(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
                           & (out["rCountT"] > 50))
     else:
         out["het"] = 1 * (out[["vafN", "refN"]].min(axis=1) > het_thresh)
-    _scansnp(out, snp_window=snp_window)
-    #print out
+    out["keep"] = _scansnp(out, snp_window=snp_window)
+    return out
 
 
-def _scansnp(dat, snp_window=250):
+def _scansnp(data, snp_window=250):
+    n = len(data)
+    maploc = list(data["maploc"])
+    het = list(data["het"])
+    keep = np.zeros(n)
+    nbhd = snp_window
+    i = 0; keep[i] = 1; nsnp = 1.0; nhet = het[i]; isel = i
+    for j in xrange(1, n, 1):
+        if abs(maploc[j] - maploc[i]) <= nbhd:
+            nsnp = nsnp + 1.0
+            nhet = nhet + het[j]
+            usnp = np.random.uniform()
+            if nhet > 0:
+                if het[j] == 1:
+                    if usnp <= 1.0 / nhet:
+                        keep[isel] = 0
+                        keep[j] = 1.0
+                        isel = j
+                    else:
+                        keep[j] = 0.0
+                else:
+                    keep[j] = 0.0
+            else:
+                if usnp <= 1.0 / nsnp:
+                    keep[isel] = 0
+                    keep[j] = 1.0
+                    isel = j
+                else:
+                    keep[j] = 0.0
+        else:
+            i = j
+            isel = i
+            keep[i] = 1
+            nsnp = 1.0
+            nhet = het[i]
+    return keep
+
+
+def _counts2logROR(dat, gbuild="hg19", unmatched=False, f=0.2):
+    out = dat[dat["keep"] == 1]
+    out.loc[:, "gcpct"] = 0
+    #out.loc[:, "gcpct"] = 0
+    # out["gcpct"] = np.zeros(len(out))
+    nchr = max(out["chrom"])
+    print "--------->ROR向下"
+    print out.shape
+    print nchr
+    print "--------->ROR"
+
+
+def _scansnp2(dat, snp_window=250):
     #nsnp, nhet and isel  are initialized
+    times = time.time()
     i = 0
     keep = np.zeros(len(dat))
     het = dat["het"]
     nsnp = 1.0
     nhet = het[i]
     isel = i
+    keep[i] = 1
     for index, row in dat.iterrows():
         if index == 0:
             continue
@@ -108,7 +164,17 @@ def _scansnp(dat, snp_window=250):
             keep[i] = 1
             nsnp = 1.0
             nhet = het[i]
-    print keep
+        # print "1<<<<<<<<<<<<<<<"
+        # print "i = " + str(i)
+        # print "keep = " + str(keep[0]) + str(keep[1])
+        # print "het = " + str(het[0]) + "\t" + str(het[1])
+        # print "nsnp = " + str(nsnp)
+        # print "nhet = " + str(nhet)
+        # break
+    times = time.time() - times
+    print "---------------------->1"
+    print "time = " + str(times)
+    #print ', '.join([str(i) for i in keep])
     return keep
 
 
