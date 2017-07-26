@@ -32,7 +32,7 @@ def readSNP(file=None, err_thresh=0, del_thresh=0):
     dat_f = dat_f[dat_f["Chromosome"].isin([str(i) for i in xrange(23)] + ['X'])]
     dat_f.loc[dat_f["Chromosome"] == "X", "Chromosome"] = "23"
     dat_f["Chromosome"] = dat_f["Chromosome"].astype(int)
-    print dat_f.shape
+    #print dat_f.shape
     preProcSample(dat_f)
     return dat_f
 
@@ -43,7 +43,7 @@ def preProcSample(rcmat, ndepth=35, het_thresh=0.25, snp_window=250,
     rcmat = _procSnps(rcmat, ndepth, het_thresh, snp_window, unmatched,
                      ndepthmax)
     _counts2logROR(rcmat, gbuild="hg19", unmatched=unmatched, f=0.2)
-    print rcmat.shape
+    #print rcmat.shape
     #print rcmat
 
 
@@ -112,10 +112,9 @@ def _scansnp(data, snp_window=250):
 
 
 def _counts2logROR(dat, gbuild="hg19", unmatched=False, f=0.2):
-    out = dat[dat["keep"] == 1]
+    out = dat
     out.loc[:, "gcpct"] = 0
-    #out.loc[:, "gcpct"] = 0
-    # out["gcpct"] = np.zeros(len(out))
+    out = dat[dat["keep"] == 1]
     nchr = max(out["chrom"])
     print "--------->ROR向下"
     print out.shape
